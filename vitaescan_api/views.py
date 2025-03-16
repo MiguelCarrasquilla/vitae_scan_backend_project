@@ -52,3 +52,37 @@ class UserViewSet(viewsets.ModelViewSet):
 
         except Exception as e:
             return Response({"error": str(e)}, status=status.HTTP_400_BAD_REQUEST)
+
+    @action(detail=False, methods=['get'])
+    def login(self, request):
+        id_token = request.data.get("id_token")
+
+        if not id_token:
+            return Response({"error": "ID Token es obligatorio"}, status=status.HTTP_400_BAD_REQUEST)
+        
+        try:
+            decoded_token = auth.verify_id_token(id_token)
+            uid = decoded_token["uid"]
+
+            user = User.objects.get(email=decoded_token.get("email"))
+
+            return Response({
+                "message": "Usuario autenticado con exito",
+                "firebase_user": {
+                    "uid": uid,
+                    "email": decoded_token.get("email"),
+                    "name": decoded_token.get("name")
+                }, "user": {
+                    "id": user.id,
+                    "email": user.email,
+                    "fullname":  user.fullname,
+                    "role": user.role,
+                    "status": user.status,
+                    "id_number": user.id_number,
+                }})
+        except auth.InvalidIdTokenError:
+            return Response({"error": "ID Token es invalido"}, status=status.HTTP_401_UNAUTHORIZED)
+        except User.DoesNotExist:
+            return Response({"error": "Usuario no registrado"}, status=status.HTTP_401_UNAUTHORIZED)
+        except Exception as e:
+            return Response({"error": str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
